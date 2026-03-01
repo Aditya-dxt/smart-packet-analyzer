@@ -1,6 +1,9 @@
 # 🚀 Smart Packet Analyzer
 
 <p align="center">
+  <img src="assets/demo.gif" width="800"/>
+</p>
+<p align="center">
   <a href="https://github.com/Aditya-dxt/smart-packet-analyzer/releases/latest">
     <img src="https://img.shields.io/badge/Download-Windows%20Installer-success?style=for-the-badge&logo=windows"/>
   </a>

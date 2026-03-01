@@ -1,5 +1,9 @@
 # 🚀 Smart Packet Analyzer
 
+A real-time **Network Packet Analyzer Desktop Application** built using **Java, JavaFX, and Pcap4J** that captures live network traffic and visualizes protocol activity through interactive charts and dashboards.
+
+Designed as a lightweight educational alternative to tools like **Wireshark**, focused on visualization and real-time analytics.
+
 ## 📸 Application Demo-video Preview
 <p align="center">
   <img src="assets/demo.gif" width="800"/>
@@ -18,12 +22,6 @@
   <img src="https://img.shields.io/github/license/Aditya-dxt/smart-packet-analyzer"/>
   <img src="https://img.shields.io/github/stars/Aditya-dxt/smart-packet-analyzer?style=social"/>
 </p>
-
----
-
-A real-time **Network Packet Analyzer Desktop Application** built using **Java, JavaFX, and Pcap4J** that captures live network traffic and visualizes protocol activity through interactive charts and dashboards.
-
-Designed as a lightweight educational alternative to tools like **Wireshark**, focused on visualization and real-time analytics.
 
 ---
 

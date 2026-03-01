@@ -43,10 +43,7 @@ public class Main {
     // =====================================================
     public static void startAnalyzer() throws Exception {
 
-        // Prevent double start
-        if (captureRunning.get()) {
-            return;
-        }
+        if (captureRunning.get()) return;
 
         captureRunning.set(true);
         startTime = System.currentTimeMillis();
@@ -54,7 +51,7 @@ public class Main {
 
         System.out.println("=== Capture Started ===");
 
-        // ================= SPEED UPDATE THREAD =================
+        // ================= SPEED THREAD =================
         new Thread(() -> {
             try {
                 while (captureRunning.get()) {
@@ -64,23 +61,38 @@ public class Main {
                     lastSecondBytes = totalBytes - previousBytes;
                     previousBytes = totalBytes;
 
-                    double speed = lastSecondBytes / 1024.0; // KB/s
-
+                    double speed = lastSecondBytes / 1024.0;
                     LiveDataBus.publishSpeed(speed);
                 }
-            } catch (Exception ignored) {
-            }
+            } catch (Exception ignored) {}
         }).start();
-        // =======================================================
 
-        List<PcapNetworkInterface> devices = Pcaps.findAllDevs();
-        if (devices == null || devices.isEmpty()) {
-            System.out.println("No devices found.");
+        // ================= DEVICE SELECTION =================
+        List<PcapNetworkInterface> allDevs = Pcaps.findAllDevs();
+
+        if (allDevs == null || allDevs.isEmpty()) {
+            System.out.println("❌ No network devices found.");
             return;
         }
 
-        PcapNetworkInterface nif = devices.get(1);
+        PcapNetworkInterface nif = null;
 
+        for (PcapNetworkInterface dev : allDevs) {
+            try {
+                if (!dev.isLoopBack() && !dev.getAddresses().isEmpty()) {
+                    nif = dev;
+                    break;
+                }
+            } catch (Exception ignored) {}
+        }
+
+        if (nif == null) {
+            throw new IllegalStateException("No active network interface found");
+        }
+
+        System.out.println("✅ Using device: " + nif.getDescription());
+
+        // ================= OPEN HANDLE =================
         handle = nif.openLive(
                 65536,
                 PcapNetworkInterface.PromiscuousMode.PROMISCUOUS,
@@ -88,10 +100,9 @@ public class Main {
         );
 
         PacketListener listener = packet -> {
-            if (!captureRunning.get()) {
-                return;
+            if (captureRunning.get()) {
+                analyzePacket(packet);
             }
-            analyzePacket(packet);
         };
 
         while (captureRunning.get()) {
@@ -126,7 +137,6 @@ public class Main {
             handleTCP(packet);
         }
 
-        // ⭐ ADD THIS LINE
         updateUIStats();
     }
 
@@ -136,9 +146,7 @@ public class Main {
         IpPacket ip = packet.get(IpPacket.class);
         TcpPacket tcp = packet.get(TcpPacket.class);
 
-        if (ip == null || tcp == null) {
-            return;
-        }
+        if (ip == null || tcp == null) return;
 
         String src = ip.getHeader().getSrcAddr().getHostAddress();
         String dst = ip.getHeader().getDstAddr().getHostAddress();
@@ -163,9 +171,7 @@ public class Main {
         IpPacket ip = packet.get(IpPacket.class);
         UdpPacket udp = packet.get(UdpPacket.class);
 
-        if (ip == null || udp == null) {
-            return;
-        }
+        if (ip == null || udp == null) return;
 
         String src = ip.getHeader().getSrcAddr().getHostAddress();
         String dst = ip.getHeader().getDstAddr().getHostAddress();
@@ -185,56 +191,41 @@ public class Main {
         );
     }
 
-    // ================= WEBSITE ====================
+    // ================= DNS LEARNING ====================
     private static void learnDomainFromDNS(Packet packet) {
-
         try {
-            String payload
-                    = new String(packet.getRawData()).toLowerCase();
+            String payload = new String(packet.getRawData()).toLowerCase();
 
             IpPacket ip = packet.get(IpPacket.class);
-            if (ip == null) {
-                return;
-            }
+            if (ip == null) return;
 
-            String srcIP
-                    = ip.getHeader().getSrcAddr().getHostAddress();
+            String srcIP = ip.getHeader().getSrcAddr().getHostAddress();
 
             String domain = null;
 
-            if (payload.contains("google")) {
-                domain = "google.com";
-            } else if (payload.contains("github")) {
-                domain = "github.com";
-            }
+            if (payload.contains("google")) domain = "google.com";
+            else if (payload.contains("github")) domain = "github.com";
 
             if (domain != null) {
-
                 ipToDomain.put(srcIP, domain);
-
-                // ⭐ SEND TO UI
                 LiveDataBus.addWebsite(domain);
             }
 
-        } catch (Exception ignored) {
-        }
+        } catch (Exception ignored) {}
     }
 
-    // ================= SERVICE ====================
+    // ================= SERVICE DETECTION ====================
     private static String detectService(String src, String dst) {
 
-        if (src.startsWith("140.82") || dst.startsWith("140.82")) {
+        if (src.startsWith("140.82") || dst.startsWith("140.82"))
             return "GitHub";
-        }
 
         if (src.startsWith("142.250") || dst.startsWith("142.250")
-                || src.startsWith("74.125") || dst.startsWith("74.125")) {
+                || src.startsWith("74.125") || dst.startsWith("74.125"))
             return "Google/YouTube";
-        }
 
-        if (src.startsWith("192.168") || dst.startsWith("192.168")) {
+        if (src.startsWith("192.168") || dst.startsWith("192.168"))
             return "Local Network";
-        }
 
         return "Internet";
     }
@@ -255,15 +246,10 @@ public class Main {
             double seconds = (now - startTime) / 1000.0;
 
             if (seconds > 0) {
-
                 double speed = (totalBytes / 1024.0) / seconds;
-
-                // ✅ Update label (existing)
                 App.speedLabel.setText(
                         String.format("Speed: %.2f KB/s", speed)
                 );
-
-                // ⭐ NEW — send data to graph
             }
         });
     }
